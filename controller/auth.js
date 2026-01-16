@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/user');
-const sendEmail = require('../utils/sendEmail'); // You'll need to create this utility
+const sendEmail = require('../utils/Sendemail'); 
 
 // ============================================
 // HELPER FUNCTIONS
@@ -87,22 +87,9 @@ exports.register = async (req, res) => {
     });
 
     // Generate email verification token
-    const verificationToken = user.getEmailVerificationToken();
+    // const verificationToken = user.getEmailVerificationToken();
     await user.save({ validateBeforeSave: false });
-
-    // Create verification URL
-    const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${verificationToken}`;
-
-    const message = `Please verify your email by clicking on this link: \n\n${verificationUrl}`;
-
-    try {
-      await sendEmail({
-        email: user.email,
-        subject: 'Email Verification',
-        message,
-      });
-
-      res.status(201).json({
+    res.status(201).json({
         success: true,
         message: 'User registered successfully. Please check your email to verify your account.',
         data: {
@@ -110,18 +97,10 @@ exports.register = async (req, res) => {
           name: user.name,
           email: user.email,
         },
-      });
-    } catch (err) {
-      user.emailVerificationToken = undefined;
-      user.emailVerificationExpire = undefined;
-      await user.save({ validateBeforeSave: false });
-
-      return res.status(500).json({
-        success: false,
-        message: 'Email could not be sent',
-      });
-    }
+      });     
   } catch (error) {
+    console.log(error);
+    
     res.status(500).json({
       success: false,
       message: 'Server error during registration',
