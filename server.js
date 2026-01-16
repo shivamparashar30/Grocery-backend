@@ -3,12 +3,10 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/error');
-
+const auth = require('./routes/authRoutes');
 
 // Load env vars
 dotenv.config();
-
-
 
 // Connect to database
 connectDB();
@@ -23,12 +21,13 @@ app.use(express.urlencoded({ extended: true }));
 // CORS middleware
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: process.env.CLIENT_URL || 'http://localhost:8080',
     credentials: true,
   })
 );
 
-
+// Mount routers
+app.use('/api/v1/auth', auth);
 
 // Root route
 app.get('/', (req, res) => {
