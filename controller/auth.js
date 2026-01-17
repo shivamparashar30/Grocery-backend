@@ -59,7 +59,7 @@ const sendTokenResponse = (user, statusCode, res) => {
 // @access  Public
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, phone } = req.body;
 
     // Validate input
     if (!name || !email || !password) {
@@ -83,21 +83,15 @@ exports.register = async (req, res) => {
       name,
       email,
       password,
+      phone,
       role: role || 'user',
     });
 
-    // Generate email verification token
-    // const verificationToken = user.getEmailVerificationToken();
+    // Email verification is disabled - user can login immediately
     await user.save({ validateBeforeSave: false });
-    res.status(201).json({
-        success: true,
-        message: 'User registered successfully. Please check your email to verify your account.',
-        data: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-        },
-      });     
+    
+    // Return token and user data directly
+    sendTokenResponse(user, 201, res);
   } catch (error) {
     console.log(error);
     
@@ -145,20 +139,20 @@ exports.login = async (req, res) => {
     }
 
     // Check if user is blocked
-    if (user.status === 'blocked') {
+    if (user.status === 'blocked' || user.isBlocked) {
       return res.status(403).json({
         success: false,
         message: 'Your account has been blocked. Please contact support.',
       });
     }
 
-    // Check if email is verified
-    if (!user.isEmailVerified) {
-      return res.status(403).json({
-        success: false,
-        message: 'Please verify your email before logging in',
-      });
-    }
+    // Email verification check is disabled
+    // if (!user.isEmailVerified) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: 'Please verify your email before logging in',
+    //   });
+    // }
 
     // Check for 2FA
     if (user.twoFactorEnabled) {
