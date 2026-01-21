@@ -164,20 +164,25 @@ exports.login = async (req, res) => {
         tempToken: generateToken(user._id), // Temporary token for 2FA verification
       });
     }
-    if (user.isFirstLogin) {
-      if (user.fcmTokens && user.fcmTokens.length > 0) {
-        await sendPushNotification(
-          user.fcmTokens,
-          '🎉 Welcome Offer!',
-          'Get 50% OFF on your first order + FREE delivery! Shop now!',
-          { type: 'first_login_offer', discount: '50', freeDelivery: 'true' }
-        );
-      }
-      
-      // Mark as not first login anymore
-      user.isFirstLogin = false;
-      await user.save();
+   // In login method, update the notification part:
+if (user.isFirstLogin) {
+  if (user.fcmTokens && user.fcmTokens.length > 0) {
+    try {
+      await sendPushNotification(
+        user.fcmTokens,
+        '🎉 Welcome Offer!',
+        'Get 50% OFF on your first order + FREE delivery! Shop now!',
+        { type: 'first_login_offer', discount: '50', freeDelivery: 'true' }
+      );
+    } catch (notificationError) {
+      // Log error but don't fail the login
+      console.error('Failed to send notification:', notificationError);
     }
+  }
+  
+  user.isFirstLogin = false;
+  await user.save();
+}
 
     sendTokenResponse(user, 200, res);
   } catch (error) {
