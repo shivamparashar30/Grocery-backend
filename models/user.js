@@ -88,6 +88,13 @@ const UserSchema = new mongoose.Schema({
   driverPhone: {
     type: String,
   },
+  fcmTokens: [{
+  type: String,
+}],
+isFirstLogin: {
+  type: Boolean,
+  default: true,
+},
 });
 
 // Encrypt password using bcrypt (only if password is modified)

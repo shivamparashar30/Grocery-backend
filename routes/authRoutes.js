@@ -13,6 +13,7 @@ const {
   // Public routes
   register,
   login,
+  updateFCMToken,
   forgotPassword,
   resetPassword,
   verifyEmail,
@@ -54,6 +55,9 @@ router.post('/register', register);
 
 // User Login - POST /api/v1/auth/login
 router.post('/login', login);
+
+router.put('/update-fcm-token', auth, updateFCMToken);
+
 
 // Forgot Password - Send Reset Link - POST /api/v1/auth/forgot-password
 router.post('/forgot-password', forgotPassword);

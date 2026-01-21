@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/user');
 const sendEmail = require('../utils/Sendemail'); 
+const { sendPushNotification } = require('../services/firebaseService');
 
 // ============================================
 // HELPER FUNCTIONS
@@ -163,12 +164,51 @@ exports.login = async (req, res) => {
         tempToken: generateToken(user._id), // Temporary token for 2FA verification
       });
     }
+    if (user.isFirstLogin) {
+      if (user.fcmTokens && user.fcmTokens.length > 0) {
+        await sendPushNotification(
+          user.fcmTokens,
+          '🎉 Welcome Offer!',
+          'Get 50% OFF on your first order + FREE delivery! Shop now!',
+          { type: 'first_login_offer', discount: '50', freeDelivery: 'true' }
+        );
+      }
+      
+      // Mark as not first login anymore
+      user.isFirstLogin = false;
+      await user.save();
+    }
 
     sendTokenResponse(user, 200, res);
   } catch (error) {
     res.status(500).json({
       success: false,
       message: 'Server error during login',
+      error: error.message,
+    });
+  }
+};
+
+exports.updateFCMToken = async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+    
+    const user = await User.findById(req.user.id);
+    
+    // Add token if not already present
+    if (!user.fcmTokens.includes(fcmToken)) {
+      user.fcmTokens.push(fcmToken);
+      await user.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'FCM token updated successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error updating FCM token',
       error: error.message,
     });
   }
