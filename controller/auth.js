@@ -60,7 +60,7 @@ const sendTokenResponse = (user, statusCode, res) => {
 // @access  Public
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role, phone } = req.body;
+    const { name, email, password, role, phone, fcmToken } = req.body;
 
     // Validate input
     if (!name || !email || !password) {
@@ -86,16 +86,36 @@ exports.register = async (req, res) => {
       password,
       phone,
       role: role || 'user',
+      isFirstLogin: true, // Set first login flag
+      fcmTokens: fcmToken ? [fcmToken] : [], // Add FCM token if provided
     });
 
-    // Email verification is disabled - user can login immediately
     await user.save({ validateBeforeSave: false });
-    
-    // Return token and user data directly
+
+    // Send welcome push notification for first signup
+    if (fcmToken) {
+      try {
+        await sendPushNotification(
+          [fcmToken],
+          '🎉 Welcome to Our Store!',
+          'Get 50% OFF on your first order + FREE delivery! Start shopping now!',
+          {
+            type: 'welcome_offer',
+            discount: '50',
+            freeDelivery: 'true',
+            screen: 'Home'
+          }
+        );
+      } catch (notificationError) {
+        // Log error but don't fail the registration
+        console.error('Failed to send welcome notification:', notificationError);
+      }
+    }
+
+    // Return token and user data
     sendTokenResponse(user, 201, res);
   } catch (error) {
     console.log(error);
-    
     res.status(500).json({
       success: false,
       message: 'Server error during registration',
@@ -121,7 +141,6 @@ exports.login = async (req, res) => {
 
     // Check for user
     const user = await User.findOne({ email }).select('+password');
-
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -131,7 +150,6 @@ exports.login = async (req, res) => {
 
     // Check if password matches
     const isMatch = await user.matchPassword(password);
-
     if (!isMatch) {
       return res.status(401).json({
         success: false,
@@ -147,43 +165,17 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Email verification check is disabled
-    // if (!user.isEmailVerified) {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: 'Please verify your email before logging in',
-    //   });
-    // }
-
     // Check for 2FA
     if (user.twoFactorEnabled) {
       return res.status(200).json({
         success: true,
         requires2FA: true,
         message: 'Please enter your 2FA code',
-        tempToken: generateToken(user._id), // Temporary token for 2FA verification
+        tempToken: generateToken(user._id),
       });
     }
-   // In login method, update the notification part:
-if (user.isFirstLogin) {
-  if (user.fcmTokens && user.fcmTokens.length > 0) {
-    try {
-      await sendPushNotification(
-        user.fcmTokens,
-        '🎉 Welcome Offer!',
-        'Get 50% OFF on your first order + FREE delivery! Shop now!',
-        { type: 'first_login_offer', discount: '50', freeDelivery: 'true' }
-      );
-    } catch (notificationError) {
-      // Log error but don't fail the login
-      console.error('Failed to send notification:', notificationError);
-    }
-  }
-  
-  user.isFirstLogin = false;
-  await user.save();
-}
 
+    // No notification on login - only on first signup
     sendTokenResponse(user, 200, res);
   } catch (error) {
     res.status(500).json({
@@ -197,9 +189,8 @@ if (user.isFirstLogin) {
 exports.updateFCMToken = async (req, res) => {
   try {
     const { fcmToken } = req.body;
-    
     const user = await User.findById(req.user.id);
-    
+
     // Add token if not already present
     if (!user.fcmTokens.includes(fcmToken)) {
       user.fcmTokens.push(fcmToken);
